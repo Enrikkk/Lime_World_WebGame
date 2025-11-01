@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <link rel="stylesheet" href="./styles/styles.css">
+    <script src="./src/phaser/phaser.js"> </script>
+    <script src="./src/world/WorldScene.js"> </script>
+    <script src="./src/utils/InitialMenu.js"> </script>
+    <script src="./src/utils/PauseMenu.js"> </script>
+    <script src="./src/game/game.js"> </script>
+    <script src="./src/game/player/Player.js"> </script>
+    <script src="./src/game/enemies/Enemy.js"> </script>
+    <script src="./src/game/enemies/limeMonster.js"> </script>
+    <script src="./src/inventory/inventory.js"> </script>
+    <script src="./src/database/LocalStorageAdapter.js"> </script>
+    <script src="./src/database/JsonBinAdapter.js"> </script>
+    <script src="./src/database/JokeCacheGenerator.js"> </script>
+</head>
+
+<body> 
+    <!-- First, let's get ready the display for the initial menu, pause game menu and controls menus. -->
+    <div id="initial-menu" > </div>
+    <div id="pauseGame-menu" > </div>
+
+    <div id="ui-container" 
+         class="ui-container" 
+         style="opacity: 0;">
+        <!-- STATS SECTION -->
+        <div class="panel">
+            <h2 id="username-title" class="panel-title" > Session
+                <!-- Session name introduced here --> </h2>
+                 
+            <div id="stat-bars"> </div>
+        </div>
+
+        <!-- INVENTORY SECTION -->
+        <div class="inventory-panel panel">
+            <div id="inventory-display-area">
+                <div style="margin-bottom: 1rem;">
+                    <div id="inventory"> 
+                        <h2 class="panel-title" >Inventory</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

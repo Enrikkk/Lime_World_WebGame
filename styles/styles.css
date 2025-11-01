@@ -1,0 +1,260 @@
+/* Utilities */
+:root {
+    --color-bg-dark: #1a1a1a;
+    --color-bg-panel: #242424;
+    --color-text-light: #e0e0e0;
+    --color-health: #d33c3c;
+    --color-damage: #4c68d3;
+    --color-green: #10b981;
+    --color-red: #ef4444;
+    --color-blue: #3b82f6;
+    --color-yellow: #f59e0b;
+    --color-purple: #a855f7;
+    --color-gray-text: #9ca3af;
+}
+
+/* Main Containers */
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#game-container canvas { 
+    position: absolute; 
+    top: 0;
+    left: 0;
+    z-index: 100;        /* Low Index -> Background layer. */
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body { 
+    background-color: var(--color-bg-dark); 
+    color: var(--color-text-light); 
+    font-family: 'Inter', sans-serif;
+    overflow: hidden; 
+}
+
+/* Layout and Panels */
+.ui-container {
+    position: absolute;
+    top: 2rem;
+    left: 8rem;
+    width: 100%;
+    height: 10%;
+    z-index: 101;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.panel {
+    padding: 0.5rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.panel-title {
+    color:#1a1a1a;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+/* Stats Styling */
+.stat-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+.stat-label { font-size: 0.875rem; font-weight: 500; margin-right: 0.5rem; color:#1a1a1a; }
+.stat-value { font-size: 0.75rem; font-family: monospace; color:#1a1a1a; }
+
+.stat-bar-wrapper {
+    min-width: 100px;
+    height: 28px;
+    background: #3333331a;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    position: relative;
+    margin-bottom: 15px;
+    transition: width 0.5s ease-out; 
+}
+
+.stat-bar {
+    height: 100%;
+    transition: width 0.3s ease-in-out, background 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Health Bar */
+.health-bar-label { color: var(--color-red); }
+.health-bar {
+    background: linear-gradient(90deg, var(--color-health) 0%, #ff6b6b 100%);
+    box-shadow: 0 0 8px rgba(255, 107, 107, 0.7);
+}
+
+/* Damage Bar */
+.damage-bar-label { color: var(--color-damage); }
+.damage-bar-fill {
+    background: linear-gradient(90deg, var(--color-damage) 0%, #6b8eff 100%);
+    box-shadow: 0 0 8px rgba(107, 138, 255, 0.7);
+}
+
+.stat-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 0 5px #000;
+}
+
+/* Inventory styling */
+#inventory {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+}
+
+#inventory-display-area p {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.inventory-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.inventory-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 87%;
+    margin-left: 40rem;
+    padding: 0.5rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.item-slots-wrapper {
+    display: flex;
+    gap: 10px;
+}
+
+.slot {
+    width: 60px; height: 60px;
+    background: #333;
+    border: 2px solid #5a5a5a;
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+.slot:hover { border-color: var(--color-green); }
+.slot img { width: 80%; height: 80%; object-fit: contain; }
+
+.count {
+    position: absolute;
+    bottom: -5px; right: -5px;
+    background: #000000e0;
+    color: #fff;
+    padding: 0px 4px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.empty-text {
+    color: var(--color-gray-text);
+    font-size: 0.875rem;
+}
+
+
+/* Buttons */
+.menu-btn {
+  background-color: FFD700;
+  color: black;
+  padding: 28px 56px;
+  font-size: 30px;
+  border-width: 12px;
+  cursor: pointer;
+  transition: 0.4s ease;
+}
+
+.menu-btn:hover {
+  background-color: FF9000;
+  cursor: pointer;
+  transform: scale(0.95);
+}
+
+/* Make a display class to make better alert messages. */
+.hidden {
+    display: none;
+}
+
+/* Menus Styling */
+.initial-menu {
+    position: absolute; 
+    top: 6rem; /* Original 14 rem */
+    left: 30rem;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 102;
+    font-family: Arial, sans-serif;
+}
+
+.initial-menu-button-container {
+    background-color: rgba(10, 20, 30, 0.95); 
+    padding: 30px 50px; 
+    border-radius: 12px; 
+    box-shadow: 0 8px 15px rgba(0,0,0,0.7); 
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px;
+    min-width: 280px;
+    border: 2px solid #4ade80;
+}
+
+.session-name-prompt {
+    position: absolute; 
+    top: 6rem; /* Original = 16rem */
+    left: 30rem;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 103;
+    font-family: Arial, sans-serif;
+}
+
+
