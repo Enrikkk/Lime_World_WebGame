@@ -20,9 +20,14 @@ class Player extends Phaser.Physics.Arcade.Sprite
     
     // Offset collisionand size values, used later.
     offsetX = 10;
-    offsetY = 10;
+    offsetY = 13;
     sizeX = 11;
-    sizeY = 22;
+    sizeY = 19;
+
+    // For NPC interaction.
+    dialogBox;
+    onInteraction = false;
+
     
     constructor(scene)
     {
@@ -63,6 +68,20 @@ class Player extends Phaser.Physics.Arcade.Sprite
         
         // Set up the listeners for when the attack animation finishes
         this.setAttackListeners();
+        
+        // To make the interaction sign management easier, it will be created here, so that 
+        // whenever it is activated, we just have to make it visible.
+        this.interactionExclamationMark = this.scene.add.image(this.x, this.y+20, "interactionExclamationMark");
+        this.interactionExclamationMark.setOrigin(0, 0);
+        this.interactionExclamationMark.setVisible(false);
+        this.interactionExclamationMark.setDepth(200);
+        
+        this.showInteractionSign = this.showInteractionSign.bind(this);
+        this.hideInteractionSign = this.hideInteractionSign.bind(this);
+        this.checkInteraction = this.checkInteraction.bind(this);
+        
+        this.inInteractionZone = false;
+        this.wasInInteractionZone = false;
     }
     
     // Attack listener to reset flag when attack animation finishes.
@@ -79,8 +98,8 @@ class Player extends Phaser.Physics.Arcade.Sprite
     // Function to make the player move.
     move() {
         
-        // Stop movement if currently attacking
-        if (this.isAttacking) {
+        // Stop movement if currently attacking or interacting with an NPC.
+        if (this.isAttacking || this.onInteraction) {
             this.body.setVelocity(0);
             return; // Skip movement and input checks below
         }
@@ -144,6 +163,67 @@ class Player extends Phaser.Physics.Arcade.Sprite
             // Player is idle: play the correct idle animation based on last direction
             this.anims.play("player_idle_anim", true); // Assuming single idle animation for now
         }
+        
+        // Logic for npc interaction.
+        if(!this.inInteractionZone && this.wasInInteractionZone) {
+            this.hideInteractionSign();
+        }
+        
+        this.wasInInteractionZone = this.inInteractionZone;
+        
+        this.inInteractionZone = false;
+    }
+    
+    // Function to show the interaction sign over the player's head.
+    showInteractionSign() {
+        this.inInteractionZone = true;
+        this.interactionExclamationMark.setPosition(this.x - 9.5, this.y - 22);
+        this.interactionExclamationMark.setVisible(true);
+        
+        document.addEventListener("keydown", this.checkInteraction);
+    }
+    
+    // Auxiliar function for interaction with npc event listener.
+    checkInteraction(event) {
+        if (event.code === "Space") {
+            if(this.scene.activeNPC instanceof Sage) {
+                if(!this.onInteraction) {
+                this.anims.play("player_idle_anim", true);
+                this.onInteraction = true;
+                event.preventDefault(); 
+                this.scene.activeNPC.talkTo();
+                } else {
+                    this.onInteraction = false;
+                    event.preventDefault();
+                    this.dialogBox = document.getElementById("dialog-box");
+                    this.dialogBox.classList.add("hidden");
+                }
+            } else if(this.scene.activeNPC instanceof BlackSmith) {
+                    if(!this.onInteraction) {
+                    this.anims.play("player_idle_anim", true);
+                    this.onInteraction = true;
+                    event.preventDefault(); 
+                    this.scene.activeNPC.talkToInit();
+                } else {
+                    if(this.scene.activeNPC.dialogs.length == 0) {
+                        this.onInteraction = false;
+                        event.preventDefault();
+                        this.dialogBox = document.getElementById("dialog-box");
+                        this.dialogBox.classList.add("hidden");
+                    } else {
+                        this.scene.activeNPC.talkToEnd();
+                    }
+                }
+            }
+        }
+    }
+    
+    // Function to hide the interaction sign from over the player's head.
+    hideInteractionSign() {
+        this.inInteractionZone = false;
+        this.interactionExclamationMark.setVisible(false);
+
+        document.removeEventListener("keydown", this.checkInteraction);
     }
     
     // Function that handles the attack logic and starts the attack animation.
@@ -174,7 +254,7 @@ class Player extends Phaser.Physics.Arcade.Sprite
         // We correct the player collision box.
         this.setOffset(this.offsetX + 10, this.offsetY);
         
-        const attackWidth = 16;
+        const attackWidth = 22;
         const attackHeight = 24;
         let areaX = 0;
         let areaY = 0;
@@ -184,7 +264,7 @@ class Player extends Phaser.Physics.Arcade.Sprite
             areaX = this.x + 5 + this.sizeX;
             areaY = this.y + 5;
         } else {
-            areaX = this.x - this.sizeX - 1;
+            areaX = this.x - this.sizeX - 5;
             areaY = this.y + 5;
         }
         
@@ -241,24 +321,36 @@ class Player extends Phaser.Physics.Arcade.Sprite
         
         if(!enemy.damageReceivedRecently) {
             
-            const knockbackForce = 450;
+            /* Logic to apply knowback to enemy and player when attack enemy.
+            const knockbackForce = 10;
             
-            const direction = new Phaser.Math.Vector2(
-                enemy.x - hitbox.x,
-                enemy.y - hitbox.y
-            ).normalize();
+            this.scene.tweens.add({
+            targets: this,
             
-            // Apply the push velocity to the enemy.
-            enemy.body.setVelocity(
-                direction.x * knockbackForce, 
-                direction.y * knockbackForce
-            );
+            props: {
+            x: -(enemy.x - hitbox.x) * knockbackForce,
+            y: -(enemy.y - hitbox.y) * knockbackForce,
+            },
             
-            // Apply the push velocity to ourselves too.
-            this.body.setVelocity(
-                -direction.x * knockbackForce, 
-                -direction.y * knockbackForce
-            );
+            duration: 600,
+            
+            ease: 'Cubic.easeOut' 
+            });
+            
+            this.scene.tweens.add({
+            targets: enemy,
+            
+            props: {
+            x: (enemy.x - hitbox.x) * knockbackForce,
+            y: (enemy.y - hitbox.y) * knockbackForce,
+            },
+            
+            duration: 600,
+            
+            ease: 'Cubic.easeOut' 
+            });
+            
+            */
             
             enemy.takeDamage(this.damage);
             
@@ -270,7 +362,7 @@ class Player extends Phaser.Physics.Arcade.Sprite
                 [],
                 this
             );
-
+            
             this.scene.time.delayedCall(
                 150, // Duration in milliseconds.
                 () => {

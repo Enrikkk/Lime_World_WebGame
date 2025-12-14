@@ -3,7 +3,7 @@
 // As it's name tells, it is in charge of the inventory, but we will also use this 
 // to model the user's health bar.
 // Basically, the inventory class, despite being called inventory.js, for a simpler 
-// data handling, will be in charge of all the data manipulation.
+// data handling process, will be in charge of all the data manipulation.
 
 class Inventory {
     // First, inventory attributes.
@@ -18,23 +18,37 @@ class Inventory {
     // Function to create the inventory.
     // We model it based on whether the user initially decides to get it from localStorage 
     // or retrieve a session from JsonBin.
-    constructor(session_name, player, local = true) {
+    constructor(scene, session_name, player) {
+        
+        this.session_name = session_name;
+        this.player = player;
+        this.scene = scene;
+        
+        /**
+        * When creating the inventory, we will do a last write wins policy.
+        * This will be implemented using a timestamp based method.
+        * Therefore, when loading a game, the inventory version with the most recent time stamp
+        * will be the one used.
+        * 
+        * This data merging model will be session based; if no data is found for the session_name 
+        * introduced, then new data for a session is created.
+        * However, sessions won't be private, you can join to whatever session has ever been 
+        * created in the game history.
+        */
         
         this.localStorageAdapter = new LocalStorageAdapter();
         this.jsonBinAdapter = new JsonBinAdapter();
         
-        this.session_name = session_name || "Player Stats";
-        this.player = player;
-        
-        if(local) { // Load data locally.
-            this.data = this.localStorageAdapter.loadData();
-            
-            // Data empty or null.
-            if(!this.data) {
+        // First, we check what types of data are present, and act based on that.
+        this.localData = this.localStorageAdapter.loadData();
+        this.onlineData = this.jsonBinAdapter.loadData();
+        if(!this.localData) { // If we don't have local data, we check for online data.
+            if(!this.onlineData) { // If we don't also have online data, we establish an empty new game.
                 this.data = {
                     "sessions": [
                         {
                             "session_name": this.session_name,
+                            "time_stamp": Date.now(),
                             "position": {
                                 "x": player.x,
                                 "y": player.y
@@ -44,33 +58,20 @@ class Inventory {
                                 "damage": player.damage,
                                 "maxHealth": player.actualMaxHealth
                             },
-                            "items": {}
+                            "items": {},
+                            "control_items": {
+                                "blacksmith_interaction_phase": 0
+                            }
                         }
                     ]  
                 };
+            } else {
+                this.data = this.onlineData;
+                console.log("Data loaded from cloud - JsonBin.");
             }
-        } else { // Load data from JsonBin.
-            this.data = this.jsonBinAdapter.loadData();
-            
-            if(!this.data) {
-                this.data = {
-                    "sessions": [
-                        {
-                            "session_name": this.session_name,
-                            "position": {
-                                "x": player.x,
-                                "y": player.y
-                            },
-                            "stats": {
-                                "health": player.health,
-                                "damage": player.damage,
-                                "maxHealth": player.actualMaxHealth
-                            },
-                            "items": {}
-                        }
-                    ]  
-                };
-            }
+        } else {
+            this.data = this.localData;
+            console.log("Data loaded from local storage.");
         }
         
         // Save a reference to the actual session.
@@ -78,7 +79,49 @@ class Inventory {
             return session.session_name === this.session_name;
         });
         
+        // If we have data, but not an session with our name in it (most likely), 
+        // our session will be created and added.
+        if(!this.mySession) {
+            const newSession = 
+            {
+                "session_name": this.session_name,
+                "time_stamp": Date.now(),
+                "position": {
+                    "x": player.x,
+                    "y": player.y
+                },
+                "stats": {
+                    "health": player.health,
+                    "damage": player.damage,
+                    "maxHealth": player.actualMaxHealth
+                },
+                "items": {},
+                "control_items": {
+                    "blacksmith_interaction_phase": 0
+                }
+            }
+            
+            this.data.sessions.push(newSession);
+            
+            // Get a quick reference to it.
+            this.mySession = this.data.sessions.find(session => {
+                return session.session_name === this.session_name;
+            });
+        }
+        
+        if (!this.mySession.control_items) { // For developing purposes.
+            this.mySession.control_items = {
+                "blacksmith_interaction_phase": 0
+            };
+        }
+        
+        // Create Adapters now so that these can get the mySession variable as a paremeter 
+        // to properly access the timestamp value.
+        this.localStorageAdapter.communicateSession(this.mySession);
+        this.jsonBinAdapter.communicateSession(this.mySession);
+        
         this.renderInventory();
+        this.saveToLocalStorage();
     }
     
     // Save to localStorage.
@@ -98,7 +141,7 @@ class Inventory {
         this.mySession.position.health = this.player.health;
         this.mySession.position.damage = this.player.damage;
         
-        this.jsonBinAdapter.saveData(this.data);
+        this.jsonBinAdapter.uploadData(this.data);
     }
     
     // Function to update player stats.
@@ -120,6 +163,10 @@ class Inventory {
         
         this.renderStatBars();
         this.saveToLocalStorage();
+
+        if(stat == "health" && this.mySession.stats[stat] == 0) {
+            this.scene.openGameOverMenu();
+        }
     }
     
     // Function to update items.
@@ -137,6 +184,39 @@ class Inventory {
         this.saveToLocalStorage();
     }
     
+    // Function to completely clear your inventory.
+    clear() {
+        this.data = {
+            "sessions": [
+                {
+                    "session_name": this.session_name,
+                    "time_stamp": Date.now(),
+                    "position": {
+                        "x": player.x,
+                        "y": player.y
+                    },
+                    "stats": {
+                        "health": player.health,
+                        "damage": player.damage,
+                        "maxHealth": player.actualMaxHealth
+                    },
+                    "items": {},
+                    "control_items": {
+                        "blacksmith_interaction_phase": 0
+                    }
+                }
+            ]  
+        };
+
+        this.localStorageAdapter.saveData();
+        this.jsonBinAdapter.saveData();
+    }
+    
+    updateControlItem(control_item, number) {
+        this.mySession.control_items[control_item] = number;
+        this.saveToLocalStorage();
+    }
+    
     // Get the amount of a stat.
     amountStat(stat) {
         return this.mySession.stats[stat];
@@ -145,6 +225,10 @@ class Inventory {
     // Get amount of an item.
     amountItem(item) {
         return this.mySession.items[item];
+    }
+    
+    amountControlItem(control_item) {
+        return this.mySession.control_items[control_item];
     }
     
     // Function to render stats bars.
@@ -168,12 +252,6 @@ class Inventory {
         
         container.innerHTML += `
                     <div class="stat-item mb-4">
-                        <div class="stat-bar-header">
-                            <span class="stat-label health-bar-label">
-                                <i class="fas fa-heart" style="margin-right: 0.5rem;"></i> HEALTH
-                            </span>
-                            <span class="stat-value">${currentHealth} / ${maxHealth}</span>
-                        </div>
                         <div class="stat-bar-wrapper" style="width: ${healthContainerWidth}px;">
                             <div class="stat-bar health-bar" style="width: ${healthFillPercentage}%;">
                                 <span class="stat-text">${currentHealth} HP</span>
@@ -188,12 +266,7 @@ class Inventory {
         
         container.innerHTML += `
                     <div class="stat-item mb-4">
-                        <div class="stat-bar-header">
-                            <span class="stat-label damage-bar-label">
-                                <i class="fas fa-sword" style="margin-right: 0.5rem;"></i> DAMAGE POWER
-                            </span>
-                            <span class="stat-value">${currentDamage} ATK</span>
-                        </div>
+        
                         <div class="stat-bar-wrapper" style="width: ${damageContainerWidth}px;">
                             <div class="stat-bar damage-bar-fill" style="width: 100%;">
                                 <span class="stat-text">${currentDamage} ATK</span>
@@ -208,8 +281,8 @@ class Inventory {
         
         // Icon images.
         const itemIcons = {
-            "coin": "docs/media/icons/images\&Animations/coin.png",
-            "lime_blob": "docs/media/icons/images\&Animations/lime-blob.png"
+            "coin": "docs/media/items/images/coin.png",
+            "lime_blob": "docs/media/items/images/lime_blob.png"
         };
         
         // Used to find the "div" in HTML where we want to render out inventory.
@@ -217,16 +290,17 @@ class Inventory {
         
         // If a place to render the inventory hasn't been asigned, then we return, not rendering anything,
         if (!container) return;
-
+        
         container.innerHTML = "";
         
         const title = document.createElement("h3");
         title.className = "inventory-title";
-        title.textContent = "INVENTORY:";
+        title.textContent = "INVENTORY";
+        title.className = "panel-title"
         
         const itemsWrapper = document.createElement("div");
         itemsWrapper.className = "item-slots-wrapper";
-
+        
         container.appendChild(title);
         container.appendChild(itemsWrapper);
         

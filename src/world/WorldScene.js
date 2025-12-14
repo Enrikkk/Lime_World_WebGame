@@ -21,10 +21,14 @@ class WorldScene extends Phaser.Scene {
     // First, parameters for monsters stats.
     // We will use the limeMonster stats as a base, and use multipliers for other monsters.
     healthTutorial = 20;
+    healthLeft = 25;
+    healthRight = 30;
     damageTutorial = 3;
+    damageLeft = 4;
+    damageRight = 5;
     speedTutorial = 40;
-    detectionDistance = 75;
-    limeAttackDistance = 15;
+    detectionDistance = 90;
+    limeAttackDistance = 26;
     bigLimeHPMult = 3;
     bigLimeAPMult = 2;
     bigLimeSpeedMult = 0.8;
@@ -38,6 +42,10 @@ class WorldScene extends Phaser.Scene {
     limeDepth = 5;
     bigLimeDepth = 2;
     dragonLimeDepth = 6;
+
+    // Variables for npc logic.
+    npcInteractionBoxes = [];
+    activeNPC;
     
     // Construct a new scene.
     constructor() {
@@ -47,7 +55,20 @@ class WorldScene extends Phaser.Scene {
     
     // Open pause menu function.
     openPauseMenu() {
-        this.scene.launch('PauseScene', {
+        this.scene.pause();  // First, pause actual scene.
+        
+        this.scene.launch('PauseMenu', {
+            width: this.sys.game.config.width,
+            height: this.sys.game.config.height,
+            worldScene: this
+        });
+    }
+
+    // Open Game Over Menu Function.
+    openGameOverMenu() {
+        this.scene.pause();
+        
+        this.scene.launch('GameOverMenu', {
             width: this.sys.game.config.width,
             height: this.sys.game.config.height,
             worldScene: this
@@ -60,25 +81,46 @@ class WorldScene extends Phaser.Scene {
         this.load.path = "docs/media/";                                 // Establish file path.
         this.load.tilemapTiledJSON("worldMap", "map/worldMap.json");    // Load JSON file.
         this.load.image("tileImage", "map/tiles/TileSet.png");          // Load tile images.
+
+        // Load sounds.
+        this.load.audio('theme_song', 'audio/music/theme_song.mp3');
+        this.load.audio('anvil_sound', 'audio/effects/anvil_sound.mp3');
         
         // Now player animations.
-        this.load.spritesheet('player', 'player/images&Animations/playerIdleAnimation.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('player', 'player/images/playerIdleAnimation.png', { frameWidth: 32, frameHeight: 32 });
         
         // Load the spirtesheet animations for the player.
         // First, walking animations.
-        this.load.spritesheet( "playerWalkRight", "player/images&Animations/playerWalkAnimation_Right.png", {frameWidth: 32, frameHeight: 32} );
-        this.load.spritesheet( "playerWalkLeft", "player/images&Animations/playerWalkAnimation_Left.png", {frameWidth: 32, frameHeight: 32} );
-        this.load.spritesheet( "playerWalkDown", "player/images&Animations/playerWalkAnimation_Down.png", {frameWidth: 32, frameHeight: 32} );
-        this.load.spritesheet( "playerWalkUp", "player/images&Animations/playerWalkAnimation_Up.png", {frameWidth: 32, frameHeight: 32} );
+        this.load.spritesheet( "playerWalkRight", "player/images/playerWalkAnimation_Right.png", {frameWidth: 32, frameHeight: 32} );
+        this.load.spritesheet( "playerWalkLeft", "player/images/playerWalkAnimation_Left.png", {frameWidth: 32, frameHeight: 32} );
+        this.load.spritesheet( "playerWalkDown", "player/images/playerWalkAnimation_Down.png", {frameWidth: 32, frameHeight: 32} );
+        this.load.spritesheet( "playerWalkUp", "player/images/playerWalkAnimation_Up.png", {frameWidth: 32, frameHeight: 32} );
         
         // Then, attacking animations.
-        this.load.spritesheet( "playerAttackRight", "player/images&Animations/playerAttackAnimation_Right.png", {frameWidth: 50, frameHeight: 32} );
-        this.load.spritesheet( "playerAttackLeft", "player/images&Animations/playerAttackAnimation_Left.png", {frameWidth: 50, frameHeight: 32} );
+        this.load.spritesheet( "playerAttackRight", "player/images/playerAttackAnimation_Right.png", {frameWidth: 50, frameHeight: 32} );
+        this.load.spritesheet( "playerAttackLeft", "player/images/playerAttackAnimation_Left.png", {frameWidth: 50, frameHeight: 32} );
         
+        // Interaction exclamation spritesheet (a single image in this case.)
+        this.load.spritesheet( "interactionExclamationMark", "player/images/interactionExclamationMark.png", {frameWidth: 16, frameHeight: 16} );
         
         // Now the monster animations.
         // Lime Monster Animations.
-        this.load.image("limeMonster", "enemies/limeMonster/limeMonster.png");
+        this.load.spritesheet( "limeMonster" , "enemies/limeMonster/limeMonsterIdleAnimation.png", {frameWidth: 48, frameHeight: 32});
+        
+        // Walking animations.
+        this.load.spritesheet( "limeMonsterWalkAnimation" , "enemies/limeMonster/limeMonsterWalkAnimation.png", {frameWidth: 48, frameHeight: 32});
+        this.load.spritesheet( "limeMonsterWalkAnimation_Up" , "enemies/limeMonster/limeMonsterWalkAnimation_Up.png", {frameWidth: 48, frameHeight: 32});
+        
+        // Attack Animation.
+        this.load.spritesheet( "limeMonsterAttackAnimation_Left" , "enemies/limeMonster/limeMonsterAttackAnimation_Left.png", {frameWidth: 48, frameHeight: 32});
+        this.load.spritesheet( "limeMonsterAttackAnimation_Right" , "enemies/limeMonster/limeMonsterAttackAnimation_Right.png", {frameWidth: 48, frameHeight: 32});
+        
+        // Moreover, ncp animations.
+        // Sage idle animation.
+        this.load.spritesheet( "sageIdle" , "npcs/sage/sageIdleAnimation.png", {frameWidth: 32, frameHeight: 32});
+
+        // Blacksmith idle animation.
+        this.load.spritesheet( "blackSmithIdle" , "npcs/blackSmith/blackSmithIdleAnimation.png",  {frameWidth: 32, frameHeight: 32});
     }
     
     /**
@@ -98,10 +140,13 @@ class WorldScene extends Phaser.Scene {
         this.loadZone();
         
         this.setup_camera();
+        this.create_npcs();
         
         this.createInitialMenu();
-        // this.createInventory();          // Called once the game has already started.
-        this.show_collisions();             // Show Collisions.
+        this.createInventory();             // Called once the game has already started.
+        //this.show_collisions();           // Show Collisions.
+
+        this.createMusic();                 // To create and play in a loop main theme music in the background.
     }
     
     /**
@@ -125,21 +170,114 @@ class WorldScene extends Phaser.Scene {
             
             // Pause the WorldScene so the game logic stops while the menu is open.
             this.scene.pause();
-            this.input.keyboard.on('keydown-ESC', this.openPauseMenu, this); // Pause menu key listener.
         }
+        
+        this.input.keyboard.on('keydown-ESC', this.openPauseMenu, this); // Pause menu key listener.
     }
-
+    
     // Function to create and display the inventory and stat bars.
     createInventory() {
-        this.inventory = new Inventory(this.username, this.player);
+        this.inventory = new Inventory(this, this.username, this.player);
         this.inventory.renderStatBars();
         this.inventory.renderInventory();
     }
-
+    
     // Auxiliar function to the the user name.
     set_username(username) {
         this.username = username;
         this.inventory.session_name = username;
+    }
+
+    createMusic() {
+        this.bgMusic = this.sound.add('theme_song', { 
+            volume: 0.3,
+            loop: true
+        });
+
+
+        this.bgMusic.play();
+    }
+    
+    // Auxiliary function to create game npcs.
+    create_npcs() {
+        // This function will consist on a more manual work, since each npc is different and unique.
+        // Moreover, npcs will always be loaded in the map even if they are out of the viewsight.
+        // This makes the logic way easier and is not a problem since we do not have a big amount of them.
+        
+        // Create empty list to add all of the npcs.
+        this.npcs = [];
+        
+        // Create first NPC, the sage.
+        const sageStart = this.map.findObject('npcItems', obj => {
+            return obj.name === "sageSpawn";
+        });
+        
+        this.sageNPC = new Sage(this, sageStart.x, sageStart.y, "sageIdle", "sage_idle_anim", "SAGE_NPC", 1 /* Depth, same as player */);
+        this.sageNPC.body.setImmovable(true); // So that we cannot move the sage.
+        this.npcs.push(this.sageNPC);
+        
+        // Now, the npc interaction box.
+        const interactionBoxRadius = 27;
+        const sageInteraction = this.map.findObject('npcItems', obj => {
+            return obj.name === "sageInteract";
+        });
+
+        this.sageInteractionBox = this.physics.add.sprite(
+            sageInteraction.x + 10,
+            sageInteraction.y + 10,
+            null,
+        ).setVisible(false)
+        .setImmovable(true)
+        .setCircle(interactionBoxRadius)
+        .setDepth(110);
+        
+        // Now, make this overlap with the player.
+        this.physics.add.overlap(
+            this.sageInteractionBox, 
+            this.player, 
+            () => {
+                this.player.showInteractionSign();
+                this.activeNPC = this.sageNPC;
+            },
+            null, 
+            this
+        );
+
+        // Second NPC, the blacksmith.
+        const blackSmithStart = this.map.findObject('npcItems', obj => {
+            return obj.name === "blackSmithSpawn";
+        });
+        
+        this.blackSmithNPC = new BlackSmith(this, blackSmithStart.x, blackSmithStart.y, "blackSmithIdle", "blackSmith_idle_anim", "BLACKSMITH_NPC", 1 /* Depth, same as player */);
+        this.blackSmithNPC.body.setImmovable(true);
+        this.npcs.push(this.blackSmithNPC);
+        
+        // Now, the npc interaction box.
+        const blackSmithInteraction = this.map.findObject('npcItems', obj => {
+            return obj.name === "blackSmithInteract";
+        });
+
+        this.blackSmithInteractionBox = this.physics.add.sprite(
+            blackSmithInteraction.x + 10,
+            blackSmithInteraction.y + 10,
+            null,
+        ).setVisible(false)
+        .setImmovable(true)
+        .setCircle(interactionBoxRadius)
+        .setDepth(110);
+        
+        this.physics.add.overlap(
+            this.blackSmithInteractionBox, 
+            this.player, 
+            () => {
+                this.player.showInteractionSign();
+                this.activeNPC = this.blackSmithNPC;
+            },
+            null, 
+            this
+        );
+
+        this.physics.add.collider(this.player, this.npcs);
     }
     
     create_animations() {
@@ -153,60 +291,94 @@ class WorldScene extends Phaser.Scene {
         this.anims.create({
             key: 'player_idle_anim',
             frames: this.anims.generateFrameNumbers('player', { start: 0, end: 4 }),
-            frameRate: 7,
+            frameRate: 6,
             repeat: -1
         });
         
-        // Walk animations.
-        const walkHorizontalFrameRate = 10;
-        const walkVerticalFrameRate = 7;
-        const attackFrameRate = 5;
-        const walkHorizontalFrames = { start: 0, end: 9 };
-        const walkVerticalFrames = { start: 0, end: 3 };
+        // Player Animation Stats.
+        const playerWalkHorizontalFrameRate = 10;
+        const playerWalkVerticalFrameRate = 7;
+        const playerAttackFrameRate = 5;
+        const playerWalkHorizontalFrames = { start: 0, end: 9 };
+        const playerWalkVerticalFrames = { start: 0, end: 3 };
+        const playerAttackFrames = { start: 0, end: 2 };
         
         this.anims.create({
             key: 'player_walkRight_anim',
-            frames: this.anims.generateFrameNumbers('playerWalkRight', walkHorizontalFrames),
-            frameRate: walkHorizontalFrameRate,
+            frames: this.anims.generateFrameNumbers('playerWalkRight', playerWalkHorizontalFrames),
+            frameRate: playerWalkHorizontalFrameRate,
             repeat: -1
         });
         
         this.anims.create({
             key: 'player_walkLeft_anim',
-            frames: this.anims.generateFrameNumbers('playerWalkLeft', walkHorizontalFrames),
-            frameRate: walkHorizontalFrameRate,
+            frames: this.anims.generateFrameNumbers('playerWalkLeft', playerWalkHorizontalFrames),
+            frameRate: playerWalkHorizontalFrameRate,
             repeat: -1
         });
         
         this.anims.create({
             key: 'player_walkDown_anim',
-            frames: this.anims.generateFrameNumbers('playerWalkDown', walkVerticalFrames),
-            frameRate: walkVerticalFrameRate,
+            frames: this.anims.generateFrameNumbers('playerWalkDown', playerWalkVerticalFrames),
+            frameRate: playerWalkVerticalFrameRate,
             repeat: -1
         });
         
         this.anims.create({
             key: 'player_walkUp_anim',
-            frames: this.anims.generateFrameNumbers('playerWalkUp', walkVerticalFrames),
-            frameRate: walkVerticalFrameRate,
+            frames: this.anims.generateFrameNumbers('playerWalkUp', playerWalkVerticalFrames),
+            frameRate: playerWalkVerticalFrameRate,
             repeat: -1
         });
         
         // Attack Animations.
         this.anims.create({
             key: 'player_attackRight_anim',
-            frames: this.anims.generateFrameNumbers('playerAttackRight', { start:0, end:2 }),
-            frameRate: attackFrameRate,
+            frames: this.anims.generateFrameNumbers('playerAttackRight', playerAttackFrames),
+            frameRate: playerAttackFrameRate,
             repeat: 0
         });
         
         this.anims.create({
             key: 'player_attackLeft_anim',
-            frames: this.anims.generateFrameNumbers('playerAttackLeft', { start:0, end:2 }),
-            frameRate: attackFrameRate,
+            frames: this.anims.generateFrameNumbers('playerAttackLeft', playerAttackFrames),
+            frameRate: playerAttackFrameRate,
             repeat: 0
         });
         
+        /**
+        * 
+        * NPC ANIMATIONS
+        * 
+        */
+        
+        /**
+        * SAGE
+        */
+        
+        const sageIdleFrameRate = 3;
+        const sageIdleFrames = { start: 0, end: 4 };
+        
+        this.anims.create({
+            key: 'sage_idle_anim',
+            frames: this.anims.generateFrameNumbers('sageIdle', sageIdleFrames),
+            frameRate: sageIdleFrameRate,
+            repeat: -1
+        });
+
+        /**
+        * BlackSmith
+        */
+        
+        const blackSmithIdleFrameRate = 2;
+        const blackSmithIdleFrames = { start: 0, end: 4 };
+        
+        this.anims.create({
+            key: 'blackSmith_idle_anim',
+            frames: this.anims.generateFrameNumbers('blackSmithIdle', sageIdleFrames),
+            frameRate: sageIdleFrameRate,
+            repeat: -1
+        });
         
         /**
         * 
@@ -218,7 +390,48 @@ class WorldScene extends Phaser.Scene {
         * LIME MONSTER
         */
         
-        // IMPLEMENT.
+        // Stats.
+        const limeMonsterIdleFrameRate = 4;
+        const limeMonsterIdleFrames = { start: 0, end: 4 };
+        const limeMonsterWalkFrameRate = 12;
+        const limeMonsterWalkFrames = { start: 0, end: 14 };
+        const limeMonsterAttackFrameRate = 12;
+        const limeMonsterAttackFrames = { start: 0, end: 13 };
+        
+        this.anims.create({
+            key: 'limeMonster_idle_anim',
+            frames: this.anims.generateFrameNumbers('limeMonster', limeMonsterIdleFrames),
+            frameRate: limeMonsterIdleFrameRate,
+            repeat: -1
+        });
+        
+        this.anims.create({
+            key: 'limeMonster_walk_anim',
+            frames: this.anims.generateFrameNumbers('limeMonsterWalkAnimation', limeMonsterWalkFrames),
+            frameRate: limeMonsterWalkFrameRate,
+            repeat: -1
+        });
+        
+        this.anims.create({
+            key: 'limeMonster_walkUp_anim',
+            frames: this.anims.generateFrameNumbers('limeMonsterWalkAnimation_Up', limeMonsterWalkFrames),
+            frameRate: limeMonsterWalkFrameRate,
+            repeat: -1
+        });
+        
+        this.anims.create({
+            key: 'limeMonster_attackRight_anim',
+            frames: this.anims.generateFrameNumbers('limeMonsterAttackAnimation_Right', limeMonsterAttackFrames),
+            frameRate: limeMonsterAttackFrameRate,
+            repeat: -1
+        });
+        
+        this.anims.create({
+            key: 'limeMonster_attackLeft_anim',
+            frames: this.anims.generateFrameNumbers('limeMonsterAttackAnimation_Left', limeMonsterAttackFrames),
+            frameRate: limeMonsterAttackFrameRate,
+            repeat: -1
+        });
         
     }
     
@@ -271,6 +484,16 @@ class WorldScene extends Phaser.Scene {
         });
     }
     
+    // Function to remove an actual enemy.
+    remove_enemy(enemy) {
+        const index = this.activeEnemies.findIndex(e => e === enemy);
+        
+        if(index != -1) {
+            this.activeEnemies.splice(index, 1);
+            enemy.endEnemy();
+        }
+    }
+    
     // Create enemy functions by zones.
     // Tutorial.
     create_enemies_tutorial() {
@@ -280,122 +503,202 @@ class WorldScene extends Phaser.Scene {
         });
         
         // We are passing: (scene, x, y, id, depth, health, damage, speed, detDist, attDist)
-        let limeTutorial1 = new limeMonster(this, startLimeTut1.x, startLimeTut1.y, "tut1", this.limeDepth, 
-            this.healthTutorial, this.damageTutorial, this.speedTutorial, this.detectionDistance, this.limeAttackDistance);
-            
-            let startLimeTut2 = this.map.findObject('limeMonsters', obj => {
-                return obj.name === "tut2";
+        let limeTutorial1 = new limeMonster(this, startLimeTut1.x, startLimeTut1.y, "tut1", this.limeDepth, this.healthTutorial, this.damageTutorial, this.speedTutorial, this.detectionDistance, this.limeAttackDistance);
+        
+        let startLimeTut2 = this.map.findObject('limeMonsters', obj => {
+            return obj.name === "tut2";
+        });
+        
+        let limeTutorial2 = new limeMonster(this, startLimeTut2.x, startLimeTut2.y,"tut2", this.limeDepth, this.healthTutorial, this.damageTutorial, this.speedTutorial, this.detectionDistance, this.limeAttackDistance);
+        
+        // Add the enemies to their zone array (and to the active enemies array).
+        this.activeEnemies.push(limeTutorial1, limeTutorial2)
+        
+        // Setup collisions
+        if (this.activeEnemies.length > 0) {
+            this.physics.add.collider(this.player, this.activeEnemies);
+            this.physics.add.collider(this.activeEnemies, this.treeLayer);
+        }
+    }
+
+    create_enemies_left() {
+        console.log("Create Enemies Left called.")
+        for(let i = 1; i <= 10; ++i) {
+            let limePosition = this.map.findObject("limeMonsters", obj => {
+                return obj.name == "left" + i.toString();
             });
-            
-            let limeTutorial2 = new limeMonster(this, startLimeTut2.x, startLimeTut2.y,"tut2", this.limeDepth, 
-                this.healthTutorial, this.damageTutorial, this.speedTutorial, this.detectionDistance, this.limeAttackDistance);
-                
-                // Add the enemies to their zone array (and to the active enemies array).
-                this.activeEnemies.push(limeTutorial1, limeTutorial2)
-                
-                // Setup collisions
-                if (this.activeEnemies.length > 0) {
-                    this.physics.add.collider(this.player, this.activeEnemies);
-                    this.physics.add.collider(this.activeEnemies, this.treeLayer);
-                }
-            }
-            
-            // Auxiliar collision detection function.
-            create_collisions() {
-                // First, we establish the needed collisions.
-                //this.treeLayer.setCollision([65, 76]);
-                this.treeLayer.setCollisionByExclusion([-1]); // Everything in tree layer has collision.
-                
-                // Then, we get them working.
-                this.physics.add.collider(this.player, this.treeLayer);
-                
-                // Physics, but not physical collision (block movement between player and area delimiter object).
-                this.physics.add.overlap(this.player, this.areaDelimiters, this.onAreaEntrance, null, this);
-            }
-            
-            // Listener for area entrance collisions.
-            onAreaEntrance(player, areaEntrance){
-                
-                this.newZone = areaEntrance.getData("targetArea");
-                
-                if(this.newZone !== this.actualZone) {
-                    
-                    // Unload the current zone's enemies.
-                    this.unloadZone();
-                    
-                    // Update the actual zone to the new one.
-                    this.actualZone = this.newZone;
-                    this.newZone = null;
-                    
-                    // Load the new zone's enemies.
-                    this.loadZone();
-                }
-            }
-            
-            // Load actual zone enemies.
-            loadZone() {
-                
-                // Check if the current zone has an enemy array defined AND if it's empty
-                if(this.actualZone === "tutorial") {
-                    this.create_enemies_tutorial();
-                }
-                // ELSE IF STATEMENT OF ENEMIES OF OTHER ZONES.
-                
-            }
-            
-            // Unload actual zone enemies.
-            unloadZone() {
-                
-                while(this.activeEnemies.length > 0) {
-                    this.activeEnemies.pop().destroy();
-                }
-            }
-            
-            // Set up the camera to follow the
-            setup_camera()
-            {
-                this.cameras.main.startFollow(this.player);
-                //this.cameras.main.setBounds(0,0, this.mapWidth, this.mapHeight);
-            }
-            
-            // Function to see collisions.
-            show_collisions() {
-                // 1. Create a Graphics object to draw lines and shapes
-                const debugGraphics = this.add.graphics().setAlpha(0.75);
-                
-                // 2. Tell the Tilemap layer to render its collision boxes to the Graphics object
-                this.treeLayer.renderDebug(debugGraphics, {
-                    // 1st Color: White (for non-colliding tiles)
-                    tileColor: new Phaser.Display.Color(255, 255, 255, 255), 
-                    
-                    // 2nd Color: Red (for the fill of colliding tiles)
-                    collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255), 
-                    
-                    // 3rd Color: Black (for the outline/face of collision boxes)
-                    faceColor: new Phaser.Display.Color(0, 0, 0, 255)
-                });
-                
-                // 3. Enable physics debug for the player
-                this.physics.world.createDebugGraphic();
-            }
-            
-            
-            /**
-            *  UPDATE FUNCTION
-            */
-            
-            // Update the game data.
-            update() {
-                this.player.move();     // Move the player.
-                this.updateEnemiesAI();
-            }
-            
-            // Auxiliar update function.
-            updateEnemiesAI() {
-                
-                this.activeEnemies.forEach(object => object.updateAI());
-                
-            }
-            
+
+            let lime = new limeMonster(this, limePosition.x, limePosition.y, 
+                "left"+i.toString(), this.limeDepth, this.healthLeft, this.damageLeft, this.speedTutorial, 
+                this.detectionDistance, this.limeAttackDistance);
+
+            this.activeEnemies.push(lime);
         }
         
+        // Setup collisions
+        if (this.activeEnemies.length > 0) {
+            this.physics.add.collider(this.player, this.activeEnemies);
+            this.physics.add.collider(this.activeEnemies, this.treeLayer);
+        }
+    }
+
+    create_enemies_right() {
+        for(let i = 1; i <= 11; ++i) {
+            let limePosition = this.map.findObject("limeMonsters", obj => {
+                return obj.name == "right" + i.toString();
+            });
+            this.activeEnemies.push(new limeMonster(this, limePosition.x, limePosition.y, 
+                "right"+i.toString(), this.limeDepth, this.healthRight, this.damageRight, this.speedTutorial, 
+                this.detectionDistance, this.limeAttackDistance));
+        }
+        
+        // Setup collisions
+        if (this.activeEnemies.length > 0) {
+            this.physics.add.collider(this.player, this.activeEnemies);
+            this.physics.add.collider(this.activeEnemies, this.treeLayer);
+        }
+    }
+    
+    // Auxiliar collision detection function.
+    create_collisions() {
+        // First, we establish the needed collisions.
+        //this.treeLayer.setCollision([65, 76]);
+        this.treeLayer.setCollisionByExclusion([-1]); // Everything in tree layer has collision.
+        
+        // Then, we get them working.
+        this.physics.add.collider(this.player, this.treeLayer);
+        
+        // Physics, but not physical collision.
+        this.physics.add.overlap(this.player, this.areaDelimiters, this.onAreaEntrance, null, this);
+    }
+    
+    // Listener for area entrance collisions.
+    onAreaEntrance(player, areaEntrance){
+        
+        this.newZone = areaEntrance.getData("targetArea");
+        
+        if(this.newZone !== this.actualZone) {
+            
+            // Unload the current zone's enemies.
+            this.unloadZone();
+            
+            // Update the actual zone to the new one.
+            this.actualZone = this.newZone;
+            this.newZone = null;
+            
+            // Load the new zone's enemies.
+            this.loadZone();
+        }
+    }
+    
+    // Load actual zone enemies.
+    loadZone() {
+        
+        // Check if the current zone has an enemy array defined AND if it's empty
+        if(this.actualZone === "tutorial") {
+            this.create_enemies_tutorial();
+        } else if(this.actualZone === "left") {
+            this.create_enemies_left();
+        } else if(this.actualZone === "right") {
+            this.create_enemies_right();
+        }
+
+    }
+    
+    // Unload actual zone enemies.
+    unloadZone() {
+        
+        while(this.activeEnemies.length > 0) {
+            this.activeEnemies.pop().destroy();
+        }
+    }
+    
+    // Set up the camera to follow the
+    setup_camera()
+    {
+        this.cameras.main.setBounds(0,0, this.map.widthInPixels, this.map.heightInPixels);
+        this.cameras.main.startFollow(this.player);
+    }
+    
+    // Function to see collisions.
+    show_collisions() {
+        // 1. Create a Graphics object to draw lines and shapes
+        const debugGraphics = this.add.graphics().setAlpha(0.75);
+        
+        // 2. Tell the Tilemap layer to render its collision boxes to the Graphics object
+        this.treeLayer.renderDebug(debugGraphics, {
+            // 1st Color: White (for non-colliding tiles)
+            tileColor: new Phaser.Display.Color(255, 255, 255, 255), 
+            
+            // 2nd Color: Red (for the fill of colliding tiles)
+            collidingTileColor: new Phaser.Display.Color(255, 0, 0, 255), 
+            
+            // 3rd Color: Black (for the outline/face of collision boxes)
+            faceColor: new Phaser.Display.Color(0, 0, 0, 255)
+        });
+        
+        // 3. Enable physics debug for the player
+        this.physics.world.createDebugGraphic();
+    }
+    
+    
+    /**
+    *  UPDATE FUNCTION
+    */
+    
+    // Update the game data.
+    update() {
+        this.player.move();     // Move the player.
+        this.updateEnemiesAI();
+    }
+    
+    // Auxiliar update function.
+    updateEnemiesAI() {
+        this.activeEnemies.forEach(e => e.updateAI());
+    }
+    
+    
+    /**
+    * GAME STATE SAVING FUNCTIONS.
+    */
+    saveOnline() {
+        if(this.inventory) {
+            this.inventory.saveToCloud();
+        }
+    }
+    
+    saveOffline() {
+        if(this.inventory) {
+            this.inventory.saveToLocalStorage();
+        }
+    }
+
+    /**
+     * GAME OVER - REPAWN & RESTART SECTION
+     */
+    respawn() {
+        let playerRespawn = scene.map.findObject('playerItems', obj => {
+            const typeProp = obj.properties?.find(p => p.name === 'type');
+            return typeProp && typeProp.value === 'startPoint';
+        });
+
+        this.player.x = playerRespawn.x;
+        this.player.y = playerRespawn.y;
+
+        this.inventory.updateStat("health", this.player.actualMaxHealth);
+    }
+
+    restart() { // Same as respawn but clearing inventory.
+        let playerRespawn = scene.map.findObject('playerItems', obj => {
+            const typeProp = obj.properties?.find(p => p.name === 'type');
+            return typeProp && typeProp.value === 'startPoint';
+        });
+
+        this.player.x = playerRespawn.x;
+        this.player.y = playerRespawn.y;
+
+        this.inventory.clear();
+        this.blackSmithNPC.interactionPhase = 0;
+    }
+    
+}

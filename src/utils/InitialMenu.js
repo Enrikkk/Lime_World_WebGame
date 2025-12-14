@@ -1,11 +1,6 @@
-/**
-* InitialMenu Scene: Displays the main menu for the game.
-* Uses the proper Phaser lifecycle for data initialization (init) and object creation (create).
-*/
 class InitialMenu extends Phaser.Scene {
     
     constructor() {
-        // IMPORTANT: Use a unique key that matches the scene's name
         super({ key: 'InitialMenu' });
     }
     
@@ -45,7 +40,6 @@ class InitialMenu extends Phaser.Scene {
         this.seeCodeBtn = document.getElementById("seeCode-btn");
         this.controlsBtn = document.getElementById("controls-btn");
         
-        // FIX: Pass the function reference using an arrow function
         if (this.playBtn) this.playBtn.addEventListener("click", () => this.askSessionNameAndStart());
         if (this.seeCodeBtn) this.seeCodeBtn.addEventListener("click", () => this.seeCode());
         if (this.controlsBtn) this.controlsBtn.addEventListener("click", () => this.aboutTheGameAndControls());
@@ -151,31 +145,32 @@ class InitialMenu extends Phaser.Scene {
         this.menuContainer.innerHTML =
         (
             `
-                <div id="controls-menu" class="controls-menu""> 
+            <div id="controls-menu" class="controls-menu" > 
+                <div id="controls-menu-container"
+                     class="controls-menu-container" >
+                        
                     <h1 style="color: white;
                                text-align: center;"> Lime World </h1>
-                    <h2 style="color: #ccc; font-size: 1.2em;"> A game with a lot of limes!<br>And a village to save... </h2>
-                    <p style="color: white; margin-top: 15px;"> In Lime World you will have to explore a lime with different lime monsters, and try not to get eaten by them.
-                    <br>Moreover, you have a quest to save the village from this increasing lime problem! </p>
-                    <h3 style="color: #4ade80; margin-top: 20px;"> Controls </h3>
-                    <p style="color: white;"> Press the **Escape/Esc** key to open the Resume Menu </p>
+                    <h2 style="color: #ccc; font-size: 1.2em; text-align: center;"> A game with a lot of limes!</h2>
+                    <p style="color: white; margin-top: 15px;"> In Lime World you will have to explore a world populated by lime monsters, and use their curative properties. <p>
+                    <h2 style="color: #4ade80; margin-top: 0.8rem; text-align: center; "> Controls </h2>
+                    <p style="color: white;"> Press the Escape/Esc key to open the Resume Menu </p>
                     <div style="font-family: monospace; padding: 10px; background: #2d3748; border-radius: 4px; line-height: 1.5; color: #fff;">
-                        W $\rightarrow$ Go Up<br>
-                        A $\rightarrow$ Go Left<br>
-                        S $\rightarrow$ Go Down<br>
-                        D $\rightarrow$ Go Right<br>
-                        Attack $\rightarrow$ Left Click
+                        W &rarr; Go Up<br>
+                        A &rarr; Go Left<br>
+                        S &rarr; Go Down<br>
+                        D &rarr; Go Right<br>
+                        Attack &rarr; Left Click
                     </div>
-                    <button id="okay-controls-btn" class="menu-btn" style="margin-top: 20px; background-color: #4ade80;"> Got it! </button>
+                    <button id="okay-controls-btn" class="menu-btn" style="margin-top: 1.5rem;
+                                                                           background-color: #4ade80;"> Got it! </button>
                 </div>
+            </div>
             `
         );
         
-        // Re-attach listener for the new button
-        const okayControlsBtn = document.getElementById("okay-controls-btn");
-        if (okayControlsBtn) {
-            // FIX: Pass the function reference
-            okayControlsBtn.addEventListener("click", () => this.setInitialMenuHTML());
-        }
-    }    
+        // Attach listener for new button.
+        this.okayControlsBtn = document.getElementById("okay-controls-btn");
+        this.okayControlsBtn.addEventListener("click", () => this.setInitialMenuHTML());
+    }  
 }

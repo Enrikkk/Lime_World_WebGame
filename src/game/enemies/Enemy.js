@@ -4,6 +4,8 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     // Function to control not receive multiple hits from just once.
     damageReceivedRecently = false;
+    // To handle only dealing damage once per attack.
+    canAttack = true;
 
     // This constructor receives 12 arguments.
     constructor(scene, positionX, positionY, idleSpriteSheet, id, type, depth, health, damage, 
@@ -17,7 +19,8 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.health = health;
         this.damage = damage;
         this.speed = speed;
-        this.player = this.scene.player; 
+        this.player = this.scene.player;
+        this.scene = scene;
 
         // Initial position parameters to go back to the initial place if 
         // player out of sight.
@@ -30,14 +33,13 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.attackDistance = attackDistance;
 
         // Add the monster to the scene and enable physics.
-        scene.add.existing(this);
-        scene.physics.add.existing(this);
+        this.scene.add.existing(this);
+        this.scene.physics.add.existing(this);
     }
 
     // Function to calculate the distance from the player.
     getDistanceFromPlayer() {
         if(!this.player) return Infinity;
-        // Correct distance syntax: (x1, y1, x2, y2)
         return Phaser.Math.Distance.Between(this.x, this.y, this.player.x, this.player.y);
     }
     
@@ -49,46 +51,80 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     // Main AI updating function, called every frame.
-    updateAI() {
+    updateAI(idleKey, moveRightKey, moveLeftKey, moveUpKey, attackLeftKey, attackRightKey) {
+        if(this.health <= 0 || !this.active) {
+            this.scene.remove_enemy(this);
+            return;
+        }
+
+        // So that the enemy may complete the whole attacking animation before being able 
+        // to go back to, for example, chasing the user.
+        if(!this.canAttack) return;
+
+        this.stopMovement();
+
+        // Used to perform the attack animation
+        if (this.body.velocity.x !== 0) {
+            this.lastDirection = (this.body.velocity.x > 0) ? "right" : "left";
+        } else if (this.player && this.getDistanceFromPlayer() <= this.detectionDistance) {
+            this.lastDirection = (this.player.x > this.x) ? "right" : "left";
+        }
+
         const distance = this.getDistanceFromPlayer();
         const distanceToStart = Phaser.Math.Distance.Between(this.x, this.y, this.initialX, this.initialY);
-        const stopTolerance = 2; // For returning state.
+        const stopTolerance = 2;
 
         if(this.state === "RETURNING") {
             if (distanceToStart <= stopTolerance) {
-                // When within tolerance, snap to start, stop movement, and switch to IDLE.
                 this.x = this.initialX; 
                 this.y = this.initialY; 
                 this.stopMovement();
                 this.state = "IDLE";
                 return;
             } else {
-                // Keep moving towards the initial point until stop condition is met.
                 this.returnToStartPoint();
             }
         }
 
-        if(distance > this.detectionDistance) {
-            // Player is outside detection range.
+        if(distance > this.detectionDistance) { // Player outside of detection range.
             if(this.state !== "IDLE" && this.state !== "RETURNING") {
                 this.state = "RETURNING";
                 this.returnToStartPoint(); 
             } else if (this.state === "IDLE") {
-                this.stopMovement(); // Only stop when confirmed IDLE and out of range.
+                this.stopMovement();
             }
         } else {
-            // Player is inside detection range
-            if(distance > this.attackDistance && this.state !== "CHASING") { 
-                this.state = "CHASING"
+            // Player is inside detection range.
+
+            if (distance <= this.attackDistance) {  // Player in attack range.
+                this.stopMovement();
+                if (this.canAttack) {
+                    if (this.canAttack) {
+                        this.state = "ATTACKING";
+                        this.attack();
+                    }
+                }
+            } else { 
+                // Just detection range, chase player.
+                this.state = "CHASING";
                 this.chasePlayer();
-            } else if(distance <= this.attackDistance && this.state !== "ATTACKING") { 
-                this.state = "ATTACKING";
-                this.attack();
-            } else if (this.state === "CHASING") {
-                this.chasePlayer(); // Continue chasing.
-            } else if (this.state === "ATTACKING") {
-                this.attack(); // Hold position and attack.
+            } 
+        }
+
+        if(this.state === "IDLE") {
+            this.anims.play(idleKey, true);
+        } else if(this.state === "CHASING" || this.state === "RETURNING") {
+                if(this.body.velocity.y > 0) {
+                    if(this.body.velocity.x > 0) {
+                        this.anims.play(moveRightKey, true);
+                    } else {
+                        this.anims.play(moveLeftKey, true);
+                    }
+            } else {
+                this.anims.play(moveUpKey, true);
             }
+        } else if (this.state === "ATTACKING"){
+            this.playAttackAnimation(attackLeftKey, attackRightKey);
         }
     }
 
@@ -105,32 +141,22 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.scene.physics.moveToObject(this, this.player, this.speed);
     }
 
-    // Function to attack the player (Only applies the velocity stop).
-    attack() {
-        if(!this.player || !this.body) return;
+    // The attack logic is implemented at each different type of enemy.
 
-        this.stopMovement();
-
-        // Attack Logic.
-        console.log("Enemy ", this.id, " attacks!");
-
-        // Let's create an overlap box that will be usefult to simulate the 
-        // area damage inflinged by the user.
-        const areaDamage = this.scene.add.sprite(
-
-        )
+    // Function to deal damage to the player.
+    dealDamageToPlayer() {
+        if(!this.player || !this.body || !this.scene) return;
+        this.scene.inventory.updateStat("health", this.damage*(-1));
     }
 
     // Function to receive damage.
     takeDamage(damage) {
         this.damageReceivedRecently = true;
         this.health -= damage;
-        console.log("Enemy ", this.id, " received ", damage, " damage, health is now ", this.health);
-        if(this.health <= 0) {
-            this.endEnemy();
-        }
+        // console.log("Enemy ", this.id, " received ", damage, " damage, health is now ", this.health);
     }
 
+    // Function to end the enemy.
     endEnemy() {
         this.destroy();
     }
