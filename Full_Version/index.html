@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <link rel="stylesheet" href="./styles/styles.css">
+
+    <script src="./src/phaser/phaser.js"> </script>
+
+    <script src="./src/database/LocalStorageAdapter.js"> </script>
+    <script src="./src/database/JsonBinAdapter.js"> </script>
+
+    <script src="./src/inventory/inventory.js"> </script>
+
+    <script src="./src/game/player/Player.js"> </script>
+    <script src="./src/game/enemies/Enemy.js"> </script>
+    <script src="./src/game/enemies/limeMonster.js"> </script>
+    <script src="./src/game/npcs/NPC.js"> </script>
+    <script src="./src/game/npcs/SagePhraseGenerator.js"> </script>
+    <script src="./src/game/npcs/Sage.js"> </script>
+    <script src="./src/game/npcs/BlackSmith.js"> </script>
+    <script src="./src/utils/InitialMenu.js"> </script>
+    <script src="./src/utils/PauseMenu.js"> </script>
+    <script src="./src/utils/GameOverMenu.js"> </script>
+    <script src="./src/utils/TutorialMenu.js"> </script>
+
+    <script src="./src/world/WorldScene.js"> </script>
+
+    <script src="./src/game/game.js"> </script>
+</head>
+
+<body>
+    <!-- First, let's get ready the display for the initial menu, pause game menu and controls menus. -->
+    <div id="pauseGame-menu"> </div>
+    <div id="gameOverMenu-menu"> </div>
+    <div id="tutorial-menu"> </div>
+
+    <div id="ui-container" class="ui-container" style="opacity: 0;">
+        <!-- STATS SECTION -->
+        <div class="panel">
+            <h2 id="username-title" class="panel-title"> Session
+                <!-- Session name introduced here -->
+            </h2>
+
+            <div id="stat-bars"> </div>
+        </div>
+
+        <!-- INVENTORY SECTION -->
+        <div class="inventory-panel panel" style="padding-top: -0.2rem;">
+            <div id="inventory-display-area">
+                <div style="margin-bottom: 1rem; margin-top: -0.2rem; ">
+                    <div id="inventory">
+                        <h2 class="panel-title"> </h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Used to store the chat box when talking with NPCs. -->
+        <div id="dialog-box" class="dialog-box horizontal-container hidden">
+            <div> <img id="talk-portrait"> </div>
+            <div class="vertical-container">
+                <div class="horizontal-container" style="justify-content: space-between;">
+                    <p id="dialog-speaker" class="dialog-speaker"> </p>
+                    <img class="dialog-next-indicator" src="docs/media/icons/nextDialogueIcon.png">
+                </div>
+                <div id="dialog-text" class="dialog-text">
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
